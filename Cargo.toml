@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 authors = ["wusher"]
 description = "Zellij plugin that auto-renames tabs based on CWD and git branch"
+license = "MIT"
+repository = "https://github.com/wusher/zellij-namey"
+keywords = ["zellij", "plugin", "terminal", "tabs"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 zellij-tile = "0.41"

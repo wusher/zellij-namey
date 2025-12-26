@@ -25,5 +25,5 @@ lint: ## Format code and run clippy
 	cargo fmt
 	cargo clippy -- -D warnings
 
-test: ## Run tests with 95% coverage requirement (excludes plugin glue)
-	cargo llvm-cov --target aarch64-apple-darwin --fail-under-lines 95 --ignore-filename-regex 'main\.rs$$'
+test: ## Run tests with coverage (excludes plugin glue in main.rs)
+	cargo llvm-cov --fail-under-lines 100 --ignore-filename-regex 'main\.rs$$'
