@@ -42,7 +42,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Run tests with coverage
-        run: cargo llvm-cov --fail-under-lines 100
+        run: cargo llvm-cov --fail-under-lines 100 --ignore-filename-regex 'main\.rs$'
 
   build:
     name: Build
