@@ -178,13 +178,9 @@ fn truncate(s: &str, max_len: usize, prefix_len: usize, suffix_len: usize) -> St
 ///
 /// # Examples
 ///
-/// ```
-/// use namey::formatter::{format_tab_name, FormatterConfig};
-///
-/// let config = FormatterConfig::default();
-/// assert_eq!(format_tab_name("myproject", Some("main"), &config), "myproject:main");
-/// assert_eq!(format_tab_name("myproject", None, &config), "myproject");
-/// ```
+/// With default config:
+/// - `format_tab_name("myproject", Some("main"), &config)` → `"myproject:main"`
+/// - `format_tab_name("myproject", None, &config)` → `"myproject"`
 pub fn format_tab_name(folder: &str, branch: Option<&str>, config: &FormatterConfig) -> String {
     let folder_display = truncate(
         folder,

@@ -14,7 +14,8 @@ A Zellij plugin that automatically renames tabs based on the current working dir
 
 Examples:
 - `myproject:main`
-- `my_pr…ject:m-ain` (truncated)
+- `my_lo…ject:main` (truncated folder)
+- `src:featu` (truncated branch)
 - `src` (no git repo)
 
 ### Truncation Rules (Defaults)
@@ -22,84 +23,68 @@ Examples:
 | Element | Threshold | Format |
 |---------|-----------|--------|
 | Folder  | >10 chars | first 5 + `…` + last 4 |
-| Branch  | >5 chars  | first char + `-` + last 4 |
+| Branch  | >5 chars  | first 1 + `…` + last 4 (or first 5 if ellipsis doesn't fit) |
 
 ### Trigger
 
 Updates on:
-- Pane focus change
-- Tab focus change
+- Pane focus change (via `PaneUpdate` event)
+- Tab focus change (via `TabUpdate` event)
 
-**Scope**: Rename active tab only (other tabs renamed when focused).
-
-### Debouncing
-
-To prevent rename storms during rapid focus changes:
-- Wait 150ms after focus event before triggering rename
-- Cancel pending rename if new focus event arrives
+**Scope**: Renames active tab only. Other tabs are renamed when focused.
 
 ## Configuration
 
 Via Zellij plugin config (KDL):
 
 ```kdl
-plugin location="file:~/.config/zellij/plugins/zellij-namey.wasm" {
-    folder_max_len 10
-    folder_prefix_len 5
-    folder_suffix_len 4
-    branch_max_len 5
-    branch_prefix_len 1
-    branch_suffix_len 4
-    separator ":"
-    show_branch true
+plugins {
+    namey location="file:~/.config/zellij/plugins/zellij_namey.wasm" {
+        folder_max_len 10
+        folder_prefix_len 5
+        folder_suffix_len 4
+        branch_max_len 5
+        branch_prefix_len 1
+        branch_suffix_len 4
+        separator ":"
+        show_branch true
+    }
 }
 ```
 
 ## Technical Approach
 
-### Plugin Events to Subscribe
+### Plugin Events
 
-- `PaneUpdate` (get focused pane info)
-- `TabUpdate` (current tab context)
+Subscribes to:
+- `TabUpdate` - Tracks current tab index and name
+- `PaneUpdate` - Detects focused pane and extracts CWD from title
+- `RunCommandResult` - Receives git branch query results
+- `PermissionRequestResult` - Handles permission grants
 
-### Data Retrieval
+### CWD Detection
 
-**Problem**: Zellij plugin API doesn't expose CWD directly.
+The plugin extracts the current working directory from the pane title. Zellij panes typically include the CWD in their title in formats like:
+- `zsh: /home/user/project`
+- `/home/user/project`
+- `vim:/home/user/project`
 
-**Solution**: Use `run_command()` to execute a cross-platform helper script.
+The plugin parses these patterns to extract the path.
 
-**PID Source**: Use `terminal_pid` from `PaneInfo` in `PaneManifest` (available via `PaneUpdate` event).
+### Git Branch Detection
 
-### Helper Script (Cross-Platform)
-
+Once a CWD is detected, the plugin runs:
 ```bash
-#!/bin/bash
-# get_context.sh - Cross-platform CWD and git branch retrieval
-PID="$1"
-
-# Get CWD (platform-specific)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS
-    cwd=$(lsof -p "$PID" 2>/dev/null | awk '/cwd/{print $NF}')
-else
-    # Linux
-    cwd=$(readlink -f "/proc/$PID/cwd" 2>/dev/null)
-fi
-
-# Get git branch (if in a repo)
-if [[ -n "$cwd" ]]; then
-    branch=$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null)
-fi
-
-echo "${cwd}|${branch}"
+git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null
 ```
+
+This is executed via Zellij's `run_command()` API with a context marker to identify our commands.
 
 ### Error Handling
 
-- CWD lookup fails → Skip rename, keep existing tab name
-- Git detection fails → Show folder only (graceful degradation)
-- Process no longer exists → Skip rename
-- Command timeout (>500ms) → Skip rename
+- CWD extraction fails → Uses pane title as folder name
+- Git command fails → Shows folder only (graceful degradation)
+- Empty results → Skips rename, keeps existing tab name
 
 ## File Structure
 
@@ -107,11 +92,9 @@ echo "${cwd}|${branch}"
 zellij-namey/
 ├── Cargo.toml
 ├── src/
-│   ├── main.rs        # Plugin entry, event handling
-│   ├── context.rs     # CWD + git detection logic
+│   ├── main.rs        # Plugin entry, event handling, git commands
+│   ├── context.rs     # PaneContext for CWD/branch data
 │   └── formatter.rs   # Name formatting + truncation
-├── scripts/
-│   └── get_context.sh # Cross-platform helper script
 └── README.md
 ```
 
@@ -119,8 +102,9 @@ zellij-namey/
 
 | Question | Decision |
 |----------|----------|
-| How to get pane PID? | Use `terminal_pid` from `PaneInfo` in `PaneManifest` |
+| How to get CWD? | Parse pane title (most reliable across platforms) |
+| How to get git branch? | `run_command()` with git CLI |
 | Truncation character? | Use `…` (single Unicode ellipsis U+2026) |
 | Rename scope? | Active tab only |
-| Platform support? | macOS + Linux (cross-platform script) |
+| Platform support? | macOS + Linux (git CLI is cross-platform) |
 | Git detection failure? | Graceful degradation (show folder only) |

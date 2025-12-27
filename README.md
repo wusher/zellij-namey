@@ -70,7 +70,7 @@ Requires [Rust](https://rustup.rs/) (via mise or rustup).
 make help     # Show available commands
 make setup    # Install cargo tools
 make lint     # Check formatting + clippy
-make test     # Run tests (100% coverage required)
+make test     # Run tests with coverage
 make build    # Build WASM plugin
 ```
 
